@@ -2,6 +2,7 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '2.6.7'
 	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id "com.github.node-gradle.node" version "3.3.0" // node base의 code들을 gradle로 build 할 수 있는 plugin
 }
 
 group = 'com.board'
@@ -20,7 +21,7 @@ repositories {
 
 dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
-	implementation 'org.springframework.boot:spring-boot-starter-security'
+//	implementation 'org.springframework.boot:spring-boot-starter-security'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	compileOnly 'org.projectlombok:lombok'
 	runtimeOnly 'org.postgresql:postgresql'
@@ -32,3 +33,32 @@ dependencies {
 tasks.named('test') {
 	useJUnitPlatform()
 }
+
+// node module이 어디에 있는지 설정
+node {
+	nodeModulesDir = file("$projectDir/front-end")
+	version = '18.3.0'
+	download = true
+}
+
+// npm build react를 build 할 때 사용하는 tool (npm run build를 실행하겠다)
+task npmBuild(type: NpmTask) {
+	args = ['run', "build"]
+}
+
+// 정적소스들을 into 경로로 copy 하는 task
+task copyFrontEnd(type: Copy) {
+	from "$projectDir/front-end/static"
+	into 'build/resources/main/static/.'
+}
+
+// clean이 일어날 때 node
+task cleanFrontEnd(type: Delete) {
+	delete "$projectDir/front-end/static", "$projectDir/front-end/node_modules"
+}
+
+npmBuild.dependsOn npmInstall // npm build가 일어날 때 npm install이 되어야 함
+copyFrontEnd.dependsOn npmBuild // copy가 될 때 npm build가 되어야 함
+compileJava.dependsOn copyFrontEnd // compile이 일어날 때 copy가 되어야 함
+
+clean.dependsOn cleanFrontEnd // clean 작업이 일어날 때 frontend code도 clean이 되어야 함
